@@ -111,7 +111,7 @@ class Database:
 
 
 # Export DB
-db = Database(DATABASE_URI, DATABASE_NAME)            )
+db = Database(DATABASE_URI, DATABASE_NAME)            
         await self.grp.update_one({'id': int(id)}, {'$set': {'chat_status': chat_status}})
         
     async def update_settings(self, id, settings):
