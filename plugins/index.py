@@ -1,7 +1,7 @@
 from pyrogram import Client, filters
 from pyrogram.types import Message
 from database.ia_filterdb import save_file, is_file_exist
-from info import ADMINS, INDEX_REQ_CHANNEL as LOG_CHANNEL
+from info import *
 from utils import get_file_details
 
 
