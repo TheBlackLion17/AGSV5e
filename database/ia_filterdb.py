@@ -1,8 +1,11 @@
 import re
 import asyncio
 from motor.motor_asyncio import AsyncIOMotorClient
-from info import DATABASE_URI, DATABASE_NAME
-
+from info import DATABASE_URI, DATABASE_NAME, RESULTS_PER_PAGE
+from pyrogram import Client, filters
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from database.ia_filterdb import search_files
+from utils import split_results, format_file_caption
 # ---------------------------------------------
 # MongoDB Setup
 # ---------------------------------------------
