@@ -554,4 +554,3 @@ async def recheck_subscription(client, callback_query):
     
     # If user is in both channels, restart the start function
     await start(client, message)
-
