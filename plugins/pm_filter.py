@@ -24,12 +24,6 @@ BUTTONS = {}
 SPELL_CHECK = {}
 
 
-@Client.on_message(filters.group | filters.private & filters.text & filters.incoming) #GIVE FILTER IN PM BRO IDEA OF GOUTHAM SER
-async def give_filter(client, message):
-    k = await manual_filters(client, message)
-    if k == False:
-        await auto_filter(client, message)
-
 
 
 
@@ -37,23 +31,32 @@ async def give_filter(client, message):
 # SEARCH HANDLER
 # =====================================================
 
-@Client.on_message(filters.private & filters.text & ~filters.command("start"))
-async def search_handler(client, message):
+@Client.on_message(filters.group & filters.text & filters.incoming)
+async def give_filter(client, message):
+    if EMOJI_MODE:
+        await message.react(emoji=random.choice(REACTIONS), big=True)
+
+    await mdb.update_top_messages(message.from_user.id, message.text)
+
+    # ---- NO MANUAL FILTERS — REMOVED ---- #
+
+    # Now use your Series/Movies Search System directly
     query = message.text
+    results = await mdb.search_title(query)
 
-    results = await search_title(query)
     if not results:
-        return await message.reply("❌ No results found!")
+        return await message.reply("❌ No results found.")
 
+    # create inline buttons for search results
     buttons = []
-    for movie in results:
+    for r in results:
         buttons.append(
-            [InlineKeyboardButton(movie["title"], callback_data=f"movie_{movie['_id']}")]
+            [InlineKeyboardButton(r['title'], callback_data=f"result_{r['id']}")]
         )
 
     await message.reply_photo(
         START_PIC,
-        caption=f"🔍 **Results for:** {query}",
+        caption=f"🔍 Results for **{query}**",
         reply_markup=InlineKeyboardMarkup(buttons)
     )
 
