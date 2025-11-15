@@ -2,6 +2,7 @@ import re
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 from database.ia_filterdb import get_search_results
+from imdb_api import get_movie_details
 from utils import get_size
 from info import CUSTOM_FILE_CAPTION
 from imdb import get_movie_details  # Make sure you have imdb.py
