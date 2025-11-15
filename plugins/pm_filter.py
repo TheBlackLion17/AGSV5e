@@ -32,83 +32,148 @@ async def give_filter(client, message):
         await auto_filter(client, message)
 
 
-@Client.on_callback_query(filters.regex(r"^next"))
-async def next_page(bot, query):
-    ident, req, key, offset = query.data.split("_")
-    if int(req) not in [query.from_user.id, 0]:
-        return await query.answer("Search for Yourself🔎", show_alert=True)
-    try:
-        offset = int(offset)
-    except:
-        offset = 0
-    search = BUTTONS.get(key)
-    if not search:
-        await query.answer(script.OLD_MES, show_alert=True)
-        return
+# -------------------------------------------------------
+#                    SEARCH HANDLER
+# -------------------------------------------------------
 
-    files, n_offset, total = await get_search_results(search, offset=offset, filter=True)
-    try:
-        n_offset = int(n_offset)
-    except:
-        n_offset = 0
+@Client.on_message(filters.text & filters.private)
+async def search_handler(client, message):
+    query = message.text
 
-    if not files:
-        return
-    settings = await get_settings(query.message.chat.id)
-    if settings['button']:
+    results = await imdb_search(query)
+
+    if not results:
+        return await message.reply("❌ No results found!")
+
+    # STEP 1 → SEND START PIC + ABOUT TEXT
+    await message.reply_photo(
+        photo=START_PIC,
+        caption=ABOUT_TEXT
+    )
+
+    # STEP 2 → SHOW SEARCH RESULTS
+    btn = [
+        [
+            InlineKeyboardButton(
+                f"{r['title']} ({r['year']})",
+                callback_data=f"result_{r['id']}_{str(r['is_series'])}"
+            )
+        ]
+        for r in results
+    ]
+
+    await message.reply(
+        "🎬 Select a result:",
+        reply_markup=InlineKeyboardMarkup(btn)
+    )
+
+
+# -------------------------------------------------------
+#             USER SELECTS RESULT → SHOW POSTER
+# -------------------------------------------------------
+
+@Client.on_callback_query(filters.regex(r"^result_"))
+async def result_selected(client, query):
+    _, imdb_id, is_series = query.data.split("_")
+
+    poster = await get_poster(imdb_id)
+
+    await query.message.reply_photo(
+        photo=poster,
+        caption=f"📌 Selected Title ID: {imdb_id}"
+    )
+
+    # If series → show seasons
+    if is_series == "True":
+        seasons = await get_seasons(imdb_id)
+
         btn = [
             [
                 InlineKeyboardButton(
-                    text=f"🪄[{get_size(file.file_size)}]-⚡-{file.file_name}🪄", callback_data=f'files#{file.file_id}'
-                ),
+                    f"📺 Season {s}",
+                    callback_data=f"season_{imdb_id}_{s}"
+                )
             ]
-            for file in files
-        ]
-    else:
-        btn = [
-            [
-                InlineKeyboardButton(
-                    text=f"{file.file_name}", callback_data=f'files#{file.file_id}'
-                ),
-                InlineKeyboardButton(
-                    text=f"{get_size(file.file_size)}",
-                    callback_data=f'files_#{file.file_id}',
-                ),
-            ]
-            for file in files
+            for s in seasons
         ]
 
-    if 0 < offset <= 10:
-        off_set = 0
-    elif offset == 0:
-        off_set = None
-    else:
-        off_set = offset - 10
-    if n_offset == 0:
-        btn.append(
-            [InlineKeyboardButton("◀️ Back", callback_data=f"next_{req}_{key}_{off_set}"),
-             InlineKeyboardButton(f"🎫 {math.ceil(int(offset) / 10) + 1} / {math.ceil(total / 10)}",
-                                  callback_data="pages")]
-        )
-    elif off_set is None:
-        btn.append(
-            [InlineKeyboardButton(f"🎫 {math.ceil(int(offset) / 10) + 1} / {math.ceil(total / 10)}", callback_data="pages"),
-             InlineKeyboardButton("Next ▶️", callback_data=f"next_{req}_{key}_{n_offset}")])
-    else:
-        btn.append(
-            [
-                InlineKeyboardButton("◀️ Back", callback_data=f"next_{req}_{key}_{off_set}"),
-                InlineKeyboardButton(f"🎫 {math.ceil(int(offset) / 10) + 1} / {math.ceil(total / 10)}", callback_data="pages"),
-                InlineKeyboardButton("Next ▶️", callback_data=f"next_{req}_{key}_{n_offset}")
-            ],
-        )
-    try:
-        await query.edit_message_reply_markup(
+        await query.message.reply(
+            "Select a Season:",
             reply_markup=InlineKeyboardMarkup(btn)
         )
-    except MessageNotModified:
-        pass
-    await query.answer()
+
+    else:
+        await query.answer("Movies do not have seasons.", show_alert=True)
+
+
+# -------------------------------------------------------
+#          USER SELECTS SEASON → SHOW LANGUAGES
+# -------------------------------------------------------
+
+@Client.on_callback_query(filters.regex(r"^season_"))
+async def show_season_languages(client, query):
+    _, imdb_id, season = query.data.split("_")
+
+    languages = await get_available_languages(imdb_id, season)
+
+    if not languages:
+        return await query.answer("No languages available!", show_alert=True)
+
+    btn = [
+        [
+            InlineKeyboardButton(
+                f"🌐 {lang}",
+                callback_data=f"language_{imdb_id}_{season}_{lang}"
+            )
+        ]
+        for lang in languages
+    ]
+
+    await query.message.edit_text(
+        f"📺 Season {season}\n\nSelect Language:",
+        reply_markup=InlineKeyboardMarkup(btn)
+    )
+
+
+# -------------------------------------------------------
+#         USER SELECTS LANGUAGE → SHOW QUALITIES
+# -------------------------------------------------------
+
+@Client.on_callback_query(filters.regex(r"^language_"))
+async def show_language_quality(client, query):
+    _, imdb_id, season, lang = query.data.split("_")
+
+    qualities = await get_available_qualities(imdb_id, season)
+
+    if not qualities:
+        return await query.answer("No qualities available!", show_alert=True)
+
+    btn = [
+        [
+            InlineKeyboardButton(
+                f"📀 {quality}",
+                callback_data=f"quality_{imdb_id}_{season}_{lang}_{quality}"
+            )
+        ]
+        for quality in qualities
+    ]
+
+    await query.message.edit_text(
+        f"🌐 Language: {lang}\n"
+        f"📺 Season {season}\n\n"
+        f"Select Quality:",
+        reply_markup=InlineKeyboardMarkup(btn)
+    )
+
+
+# -------------------------------------------------------
+#      USER SELECTS QUALITY → SEND ALL EPISODES
+# -------------------------------------------------------
+
+@Client.on_callback_query(filters.regex(r"^quality_"))
+async def send_all_episodes_by_quality(client, query):
+    _, imdb_id, season, lang, quality = query.data.split("_")
+
 
 
 @Client.on_callback_query(filters.regex(r"^spol")) ###SOMECHANGES DONE BY GOUTHAMSER
