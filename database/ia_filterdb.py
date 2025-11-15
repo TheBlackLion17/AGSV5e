@@ -312,6 +312,59 @@ async def get_qualities(text, qualities: list):
     quality = ", ".join(quality)
     return quality[:-2] if quality.endswith(", ") else quality
 
+# Global variable for active Media collection
+saveMedia = None
+
+async def choose_mediaDB():
+    """Choose primary or secondary database"""
+    global saveMedia
+    if tempDict['indexDB'] == DATABASE_URI:
+        logger.info("Using first db (Media)")
+        saveMedia = Media
+    else:
+        logger.info("Using second db (Media2)")
+        saveMedia = Media2
+
+async def save_file(bot, media):
+    """Save file in database safely"""
+    global saveMedia
+    # Initialize saveMedia if not yet set
+    if saveMedia is None:
+        await choose_mediaDB()
+
+    file_id, file_ref = unpack_new_file_id(media.file_id)
+    file_name = re.sub(r"(_|\-|\.|\+)", " ", str(media.file_name))
+
+    try:
+        # Prevent duplication across primary DB
+        if saveMedia == Media2 and await Media.count_documents({'file_id': file_id}, limit=1):
+            logger.warning(f'{file_name} is already saved in primary database!')
+            return False, 0
+
+        file_doc = saveMedia(
+            file_id=file_id,
+            file_ref=file_ref,
+            file_name=file_name,
+            file_size=media.file_size,
+            file_type=media.file_type,
+            mime_type=getattr(media, "mime_type", None),
+            caption=media.caption.html if media.caption else None,
+        )
+
+    except ValidationError:
+        logger.exception('Error occurred while creating document')
+        return False, 2
+
+    try:
+        await file_doc.commit()
+    except DuplicateKeyError:
+        logger.warning(f'{file_name} is already saved in database')
+        return False, 0
+    else:
+        logger.info(f'{file_name} saved successfully in database')
+        if await get_status(bot.me.id):
+            await send_msg(bot, file_doc.file_name, file_doc.caption)
+        return True, 1
 
 
 
