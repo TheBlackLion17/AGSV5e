@@ -32,6 +32,13 @@ class Media(Document):
         indexes = ('$file_name', )
         collection_name = COLLECTION_NAME
 
+async def is_file_exist(file_id):
+    """
+    Check if a file already exists in the database
+    """
+    return await files_col.find_one({"file_id": file_id}) is not None
+
+
 async def choose_mediaDB():
     """This Function chooses which database to use based on the value of indexDB key in the dict tempDict."""
     global saveMedia
