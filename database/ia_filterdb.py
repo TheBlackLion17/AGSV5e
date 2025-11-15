@@ -70,6 +70,27 @@ async def save_file(bot, media):
             await send_msg(bot, file.file_name, file.caption)
         return True, 1
 
+async def search_title(query):
+    return await db.movies.find({"title": {"$regex": query, "$options": "i"}}).to_list(20)
+
+async def get_movie(movie_id):
+    return await db.movies.find_one({"_id": movie_id})
+
+async def get_seasons(movie_id):
+    data = await get_movie(movie_id)
+    return list(data.get("seasons", {}).keys())
+
+async def get_languages(movie_id, season):
+    data = await get_movie(movie_id)
+    return list(data["seasons"][season].keys())
+
+async def get_qualities(movie_id, season, language):
+    data = await get_movie(movie_id)
+    return list(data["seasons"][season][language].keys())
+
+async def get_episode_files(movie_id, season, language, quality):
+    data = await get_movie(movie_id)
+    return data["seasons"][season][language][quality]   # list of episode dict
 
 
 async def get_search_results(query, file_type=None, max_results=10, offset=0, filter=False):
