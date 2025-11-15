@@ -38,6 +38,7 @@ FORCE_SUB2 = environ.get('FORCE_SUB2', 'https://t.me/+A9AvnxcFRNQ5Njc1')
 
 # MongoDB information
 DATABASE_URI = environ.get('DATABASE_URI', "mongodb+srv://akku:akku@cluster0.7smnpac.mongodb.net/?appName=Cluster0")
+DATABASE_URI2 = environ.get('DATABASE_URI2', "mongodb+srv://akku:akku@cluster0.7smnpac.mongodb.net/?appName=Cluster0")
 DATABASE_NAME = environ.get('DATABASE_NAME', "cluster0")
 COLLECTION_NAME = environ.get('COLLECTION_NAME', 'files')
 RESULTS_PER_PAGE =  int(environ.get('RESULTS_PER_PAGE', '5'))
