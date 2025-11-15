@@ -22,6 +22,11 @@ class Media:
         self.message_id = message_id
         self.chat_id = chat_id
 
+    @staticmethod
+    async def ensure_indexes():
+        # Example: create a unique index on file_id
+        await files_col.create_index("file_id", unique=True)
+
 # ---------------------------------------------
 # Helper: Clean series name from filename
 # Example: "Breaking.Bad.S01E02" -> "breaking bad"
