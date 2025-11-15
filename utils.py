@@ -183,6 +183,44 @@ async def search_gagala(text):
     titles = soup.find_all( 'h3' )
     return [title.getText() for title in titles]
 
+from pyrogram.types import Message
+
+
+def get_file_details(message: Message):
+    """
+    Extracts media (video, document, audio) from message.
+    Returns Pyrogram media object.
+    """
+    if message.document:
+        return message.document
+    if message.video:
+        return message.video
+    if message.audio:
+        return message.audio
+    if message.voice:
+        return message.voice
+    if message.photo:
+        return message.photo
+    return None
+
+
+def split_results(data_list, size):
+    """Split results into pages."""
+    return [data_list[i:i+size] for i in range(0, len(data_list), size)]
+
+
+def format_file_caption(file):
+    """Formats each search result as an inline download button."""
+    file_name = file["file_name"]
+    file_size = file["file_size"]
+    file_id = file["file_id"]
+
+    size_mb = round(file_size / (1024 * 1024), 2)
+
+    return f"📁 **{file_name}** ({size_mb} MB)\n" \
+           f"➡ `/file_{file_id}`\n\n"
+
+
 
 async def get_settings(group_id):
     settings = temp.SETTINGS.get(group_id)
