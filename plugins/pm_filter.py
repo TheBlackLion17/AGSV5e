@@ -34,20 +34,13 @@ async def give_filter(client, message):
 
 @Client.on_callback_query(filters.regex(r"^next"))
 async def next_page(bot, query):
-    """
-    New behavior:
-    - Loads search results for the stored key
-    - If session numbers are detected in filenames, show Session buttons (5 per row)
-    - Otherwise fall back to the original file-list buttons
-    """
-    ident, req, key, offset = query.data.split("_", 3)
+    ident, req, key, offset = query.data.split("_")
     if int(req) not in [query.from_user.id, 0]:
         return await query.answer("Search for Yourself🔎", show_alert=True)
     try:
         offset = int(offset)
     except:
         offset = 0
-
     search = BUTTONS.get(key)
     if not search:
         await query.answer(script.OLD_MES, show_alert=True)
@@ -61,158 +54,12 @@ async def next_page(bot, query):
 
     if not files:
         return
-
     settings = await get_settings(query.message.chat.id)
-
-    # Try to detect sessions from filenames
-    import re
-    sessions = set()
-    for f in files:
-        name = (f.file_name or "").lower()
-
-        m = re.search(r"\bS[eason\.\s]*?0*?(\d{1,2})\b", name, flags=re.IGNORECASE)
-        if m:
-            sessions.add(int(m.group(1)))
-            continue
-
-        m = re.search(r"\bs(\d{1,2})\b", name)
-        if m:
-            sessions.add(int(m.group(1)))
-            continue
-
-        # fallback patterns: "season 1", "season1", "s01", "1st season" - we already covered many
-        m = re.search(r"season[\s._-]*?0*?(\d{1,2})", name)
-        if m:
-            sessions.add(int(m.group(1)))
-            continue
-
-    sessions = sorted(list(sessions))
-
-    # If no sessions found, fall back to original file-list buttons (as before)
-    if not sessions:
-        if settings['button']:
-            btn = [
-                [
-                    InlineKeyboardButton(
-                        text=f"🪄[{get_size(file.file_size)}]-⚡-{file.file_name}🪄",
-                        callback_data=f'files#{file.file_id}'
-                    ),
-                ]
-                for file in files
-            ]
-        else:
-            btn = [
-                [
-                    InlineKeyboardButton(
-                        text=f"{file.file_name}", callback_data=f'files#{file.file_id}'
-                    ),
-                    InlineKeyboardButton(
-                        text=f"{get_size(file.file_size)}",
-                        callback_data=f'files_#{file.file_id}',
-                    ),
-                ]
-                for file in files
-            ]
-
-        # pagination buttons (rehydrate existing pager buttons)
-        if 0 < offset <= 10:
-            off_set = 0
-        elif offset == 0:
-            off_set = None
-        else:
-            off_set = offset - 10
-
-        if n_offset == 0:
-            btn.append(
-                [InlineKeyboardButton("◀️ Back", callback_data=f"next_{req}_{key}_{off_set}"),
-                 InlineKeyboardButton(f"🎫 {math.ceil(int(offset) / 10) + 1} / {math.ceil(total / 10)}",
-                                      callback_data="pages")]
-            )
-        elif off_set is None:
-            btn.append(
-                [InlineKeyboardButton(f"🎫 {math.ceil(int(offset) / 10) + 1} / {math.ceil(total / 10)}",
-                                      callback_data="pages"),
-                 InlineKeyboardButton("Next ▶️", callback_data=f"next_{req}_{key}_{n_offset}")])
-        else:
-            btn.append(
-                [
-                    InlineKeyboardButton("◀️ Back", callback_data=f"next_{req}_{key}_{off_set}"),
-                    InlineKeyboardButton(f"🎫 {math.ceil(int(offset) / 10) + 1} / {math.ceil(total / 10)}",
-                                         callback_data="pages"),
-                    InlineKeyboardButton("Next ▶️", callback_data=f"next_{req}_{key}_{n_offset}")
-                ],
-            )
-
-        try:
-            await query.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup(btn))
-        except MessageNotModified:
-            pass
-        return await query.answer()
-
-    # Build dynamic session buttons (🎬 Session X)
-    session_buttons = []
-    row = []
-    for s in sessions:
-        row.append(
-            InlineKeyboardButton(
-                text=f"🎬 Session {s}",
-                # Use :: delimiter to safely include the key (which has hyphen)
-                callback_data=f"choose_session::{key}::{s}"
-            )
-        )
-        if len(row) == 5:
-            session_buttons.append(row)
-            row = []
-    if row:
-        session_buttons.append(row)
-
-    # add a button to restore the file-list view (back to results)
-    session_buttons.append(
-        [InlineKeyboardButton("🔙 Show files", callback_data=f"show_files::{key}::{offset}")]
-    )
-
-    try:
-        await query.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup(session_buttons))
-    except MessageNotModified:
-        pass
-    await query.answer()
-
-
-# ---------------------------
-# Show files (restore original file buttons)
-# ---------------------------
-@Client.on_callback_query(filters.regex(r"^show_files::"))
-async def show_files(client: Client, query: CallbackQuery):
-    """
-    Rebuilds the original file buttons for a given key+offset
-    callback_data format: show_files::KEY::OFFSET
-    """
-    try:
-        _, key, offset = query.data.split("::", 2)
-    except ValueError:
-        return await query.answer("Invalid data", show_alert=True)
-
-    try:
-        offset = int(offset)
-    except:
-        offset = 0
-
-    search = BUTTONS.get(key)
-    if not search:
-        return await query.answer(script.OLD_MES, show_alert=True)
-
-    files, n_offset, total = await get_search_results(search, offset=offset, filter=True)
-    if not files:
-        return await query.answer("No files found.")
-
-    settings = await get_settings(query.message.chat.id)
-
     if settings['button']:
         btn = [
             [
                 InlineKeyboardButton(
-                    text=f"🪄[{get_size(file.file_size)}]-⚡-{file.file_name}🪄",
-                    callback_data=f'files#{file.file_id}'
+                    text=f"🪄[{get_size(file.file_size)}]-⚡-{file.file_name}🪄", callback_data=f'files#{file.file_id}'
                 ),
             ]
             for file in files
@@ -231,174 +78,37 @@ async def show_files(client: Client, query: CallbackQuery):
             for file in files
         ]
 
-    # pagination buttons (same as original)
     if 0 < offset <= 10:
         off_set = 0
     elif offset == 0:
         off_set = None
     else:
         off_set = offset - 10
-
-    try:
-        n_offset = int(n_offset)
-    except:
-        n_offset = 0
-
     if n_offset == 0:
         btn.append(
-            [InlineKeyboardButton("◀️ Back", callback_data=f"next_0_{key}_{off_set}"),
+            [InlineKeyboardButton("◀️ Back", callback_data=f"next_{req}_{key}_{off_set}"),
              InlineKeyboardButton(f"🎫 {math.ceil(int(offset) / 10) + 1} / {math.ceil(total / 10)}",
                                   callback_data="pages")]
         )
     elif off_set is None:
         btn.append(
             [InlineKeyboardButton(f"🎫 {math.ceil(int(offset) / 10) + 1} / {math.ceil(total / 10)}", callback_data="pages"),
-             InlineKeyboardButton("Next ▶️", callback_data=f"next_0_{key}_{n_offset}")])
+             InlineKeyboardButton("Next ▶️", callback_data=f"next_{req}_{key}_{n_offset}")])
     else:
         btn.append(
             [
-                InlineKeyboardButton("◀️ Back", callback_data=f"next_0_{key}_{off_set}"),
-                InlineKeyboardButton(f"🎫 {math.ceil(int(offset) / 10) + 1} / {math.ceil(total / 10)}",
-                                     callback_data="pages"),
-                InlineKeyboardButton("Next ▶️", callback_data=f"next_0_{key}_{n_offset}")
+                InlineKeyboardButton("◀️ Back", callback_data=f"next_{req}_{key}_{off_set}"),
+                InlineKeyboardButton(f"🎫 {math.ceil(int(offset) / 10) + 1} / {math.ceil(total / 10)}", callback_data="pages"),
+                InlineKeyboardButton("Next ▶️", callback_data=f"next_{req}_{key}_{n_offset}")
             ],
         )
-
     try:
-        await query.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup(btn))
-    except MessageNotModified:
-        pass
-
-    await query.answer()
-
-
-# ---------------------------
-# When user chooses a session -> show qualities
-# ---------------------------
-@Client.on_callback_query(filters.regex(r"^choose_session::"))
-async def choose_session(client: Client, query: CallbackQuery):
-    """
-    callback_data format: choose_session::KEY::SESSION
-    Shows unique qualities available in that session.
-    """
-    try:
-        _, key, session = query.data.split("::", 2)
-    except ValueError:
-        return await query.answer("Invalid data", show_alert=True)
-
-    try:
-        session = int(session)
-    except:
-        return await query.answer("Invalid session", show_alert=True)
-
-    search = BUTTONS.get(key)
-    if not search:
-        return await query.answer(script.OLD_MES, show_alert=True)
-
-    files, _, _ = await get_search_results(search, offset=0, filter=True)
-    if not files:
-        return await query.answer("No files found.")
-
-    # Detect qualities for this session
-    import re
-    qualities = []
-    qset = set()
-    for f in files:
-        name = (f.file_name or "").lower()
-
-        # ensure file belongs to the selected session
-        if (f"s{session}" not in name) and (f"season {session}" not in name) and (f"season{session}" not in name):
-            # also consider patterns like "season.1" or "s01."
-            if not re.search(rf"(s0*{session}\b|season[\s\._-]*0*{session}\b)", name):
-                continue
-
-        # find common quality markers
-        qmatch = re.search(r"(2160p|1080p|720p|480p|360p|4k|x265|x264|web[-_. ]dl|bluray|hdrip|dvdrip)", name)
-        if qmatch:
-            q = qmatch.group(1)
-            if q not in qset:
-                qset.add(q)
-                qualities.append(q)
-
-    if not qualities:
-        return await query.answer("No qualities found for that session.", show_alert=True)
-
-    # Build quality buttons (single column)
-    qbtn = [[InlineKeyboardButton(f"🔹 {q}", callback_data=f"choose_quality::{key}::{session}::{q}")] for q in qualities]
-
-    # back button to session list (reuse next callback)
-    qbtn.append([InlineKeyboardButton("🔙 Back to Sessions", callback_data=f"next_0_{key}_0")])
-    qbtn.append([InlineKeyboardButton("🔙 Show files", callback_data=f"show_files::{key}::0")])
-
-    try:
-        await query.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup(qbtn))
+        await query.edit_message_reply_markup(
+            reply_markup=InlineKeyboardMarkup(btn)
+        )
     except MessageNotModified:
         pass
     await query.answer()
-
-
-# ---------------------------
-# When user chooses a quality -> send all matching files to PM
-# ---------------------------
-@Client.on_callback_query(filters.regex(r"^choose_quality::"))
-async def choose_quality(client: Client, query: CallbackQuery):
-    """
-    callback_data format: choose_quality::KEY::SESSION::QUALITY
-    Sends all matching files for that session+quality to user's PM.
-    """
-    try:
-        _, key, session, quality = query.data.split("::", 3)
-    except ValueError:
-        return await query.answer("Invalid data", show_alert=True)
-
-    try:
-        session = int(session)
-    except:
-        return await query.answer("Invalid session", show_alert=True)
-
-    quality = quality.lower()
-    search = BUTTONS.get(key)
-    if not search:
-        return await query.answer(script.OLD_MES, show_alert=True)
-
-    files, _, _ = await get_search_results(search, offset=0, filter=True)
-    if not files:
-        return await query.answer("No files found.")
-
-    # collect matching files
-    matches = []
-    for f in files:
-        name = (f.file_name or "").lower()
-
-        # session check
-        if not re.search(rf"(s0*{session}\b|season[\s\._-]*0*{session}\b)", name):
-            continue
-
-        # quality check
-        if quality not in name:
-            # allow partial matches, e.g. '1080p' in '1080p.bluray'
-            continue
-
-        matches.append(f)
-
-    if not matches:
-        return await query.answer("No files for that quality.", show_alert=True)
-
-    # Send each file to user's PM
-    sent = 0
-    for f in matches:
-        try:
-            await client.send_cached_media(
-                chat_id=query.from_user.id,
-                file_id=f.file_id,
-                caption=f"🎬 {f.file_name}"
-            )
-            sent += 1
-            await asyncio.sleep(0.2)  # small throttle
-        except Exception:
-            logger.exception("failed sending file to pm")
-
-    await query.answer(f"Sent {sent} files to your PM ✅", show_alert=True)
 
 
 @Client.on_callback_query(filters.regex(r"^spol")) ###SOMECHANGES DONE BY GOUTHAMSER
