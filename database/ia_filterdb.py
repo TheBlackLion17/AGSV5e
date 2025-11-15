@@ -12,6 +12,15 @@ mongo = AsyncIOMotorClient(DATABASE_URI)
 db = mongo[DATABASE_NAME]
 files_col = db.files  # Your indexed media storage
 
+class Media:
+    def __init__(self, file_id, file_name, file_size=0, mime_type="", caption="", message_id=0, chat_id=0):
+        self.file_id = file_id
+        self.file_name = file_name
+        self.file_size = file_size
+        self.mime_type = mime_type
+        self.caption = caption
+        self.message_id = message_id
+        self.chat_id = chat_id
 
 # ---------------------------------------------
 # Helper: Clean series name from filename
