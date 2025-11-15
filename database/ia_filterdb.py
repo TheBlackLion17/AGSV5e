@@ -1,162 +1,123 @@
-import logging
-from struct import pack
 import re
-import base64
-from pyrogram.file_id import FileId
-from pymongo.errors import DuplicateKeyError
-from umongo import Instance, Document, fields
+import asyncio
 from motor.motor_asyncio import AsyncIOMotorClient
-from marshmallow.exceptions import ValidationError
-from utils import *
-from info import DATABASE_URI, DATABASE_NAME, COLLECTION_NAME, USE_CAPTION_FILTER
+from info import DATABASE_URI, DATABASE_NAME
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-
-
-client = AsyncIOMotorClient(DATABASE_URI)
-db = client[DATABASE_NAME]
-instance = Instance.from_db(db)
-
-@instance.register
-class Media(Document):
-    file_id = fields.StrField(attribute='_id')
-    file_ref = fields.StrField(allow_none=True)
-    file_name = fields.StrField(required=True)
-    file_size = fields.IntField(required=True)
-    file_type = fields.StrField(allow_none=True)
-    mime_type = fields.StrField(allow_none=True)
-    caption = fields.StrField(allow_none=True)
-
-    class Meta:
-        indexes = ('$file_name', )
-        collection_name = COLLECTION_NAME
-
-async def choose_mediaDB():
-    """This Function chooses which database to use based on the value of indexDB key in the dict tempDict."""
-    global saveMedia
-    if tempDict['indexDB'] == DATABASE_URI:
-        logger.info("Using first db (Media)")
-        saveMedia = Media
+# ---------------------------------------------
+# MongoDB Setup
+# ---------------------------------------------
+mongo = AsyncIOMotorClient(DATABASE_URI)
+db = mongo[DATABASE_NAME]
+files_col = db.files  # Your indexed media storage
 
 
-async def save_file(bot, media):
-  """Save file in database"""
-  global saveMedia
-  file_id, file_ref = unpack_new_file_id(media.file_id)
-  file_name = re.sub(r"(_|\-|\.|\+)", " ", str(media.file_name))
-  try:
-    file = Media(
-        file_id=file_id,
-        file_ref=file_ref,
-        file_name=file_name,
-        file_size=media.file_size,
-        file_type=media.file_type,
-        mime_type=media.mime_type,
-        caption=media.caption.html if media.caption else None,
-    )
-  except ValidationError:
-    logger.exception('Error occurred while saving file in database')
-    return False, 2
-  else:
-    try:
-      await file.commit()
-    except DuplicateKeyError:
-      logger.warning(f'{getattr(media, "file_name", "NO_FILE")} is already saved in database')   
-      return False, 0
-    else:
-        logger.info(f'{getattr(media, "file_name", "NO_FILE")} is saved to database')
-        if await get_status(bot.me.id):
-            await send_msg(bot, file.file_name, file.caption)
-        return True, 1
+# ---------------------------------------------
+# Helper: Clean series name from filename
+# Example: "Breaking.Bad.S01E02" -> "breaking bad"
+# ---------------------------------------------
+def extract_series_name(name):
+    name = name.lower()
+    # Remove season/episode info
+    name = re.sub(r"[sS]\d+[eE]\d+.*", "", name)
+    # Replace dots/dashes with space
+    name = name.replace(".", " ").replace("-", " ")
+    return name.strip()
 
 
+# ---------------------------------------------
+# API: Get list of series matching a query
+# ---------------------------------------------
+async def get_series(query: str):
+    regex = rf".*{query.lower()}.*"
+    cursor = files_col.find({"file_name": {"$regex": regex, "$options": "i"}})
 
-async def get_search_results(query, file_type=None, max_results=10, offset=0, filter=False):
-    """For given query return (results, next_offset)"""
+    series_set = set()
+    async for file in cursor:
+        cleaned = extract_series_name(file["file_name"])
+        if cleaned:
+            series_set.add(cleaned.title())
 
-    query = query.strip()
-    #if filter:
-        #better ?
-        #query = query.replace(' ', r'(\s|\.|\+|\-|_)')
-        #raw_pattern = r'(\s|_|\-|\.|\+)' + query + r'(\s|_|\-|\.|\+)'
-    if not query:
-        raw_pattern = '.'
-    elif ' ' not in query:
-        raw_pattern = r'(\b|[\.\+\-_])' + query + r'(\b|[\.\+\-_])'
-    else:
-        raw_pattern = query.replace(' ', r'.*[\s\.\+\-_]')
-    
-    try:
-        regex = re.compile(raw_pattern, flags=re.IGNORECASE)
-    except:
-        return []
+    return sorted(list(series_set))
 
-    if USE_CAPTION_FILTER:
-        filter = {'$or': [{'file_name': regex}, {'caption': regex}]}
-    else:
-        filter = {'file_name': regex}
+
+# ---------------------------------------------
+# API: Get seasons for a series
+# ---------------------------------------------
+async def get_seasons(series: str):
+    regex = rf".*{series.lower()}.*"
+    cursor = files_col.find({"file_name": {"$regex": regex, "$options": "i"}})
+
+    seasons = set()
+    async for file in cursor:
+        match = re.search(r"[sS](\d+)", file["file_name"])
+        if match:
+            seasons.add(match.group(1))
+
+    return sorted(list(seasons))
+
+
+# ---------------------------------------------
+# API: Get languages for a season of a series
+# ---------------------------------------------
+async def get_languages(series: str, season: str):
+    regex = rf".*{series.lower()}.*s0?{season}.*"
+    cursor = files_col.find({"file_name": {"$regex": regex, "$options": "i"}})
+
+    languages = set()
+    async for file in cursor:
+        # Try to capture language strings from filename
+        match = re.findall(
+            r"(Malayalam|Hindi|Tamil|Telugu|English|Kannada)",
+            file["file_name"],
+            flags=re.I,
+        )
+        if match:
+            languages.add(match[0].title())
+
+    return sorted(list(languages))
+
+
+# ---------------------------------------------
+# API: Get episode list for a series/season/language
+# ---------------------------------------------
+async def get_episodes(series: str, season: str, lang: str):
+    regex = rf".*{series.lower()}.*s0?{season}.*{lang.lower()}.*"
+    cursor = files_col.find({"file_name": {"$regex": regex, "$options": "i"}})
+
+    episodes = []
+
+    async for file in cursor:
+        ep_match = re.search(r"[eE](\d+)", file["file_name"])
+        episode_no = ep_match.group(1) if ep_match else "?"
+
+        episodes.append({
+            "episode": episode_no,
+            "file_id": file["file_id"],
+            "file_name": file["file_name"],
+            "file_size": file.get("file_size", 0)
+        })
+
+    # Sort by episode number
+    return sorted(episodes, key=lambda x: int(x["episode"]) if x["episode"].isdigit() else 999)
+
+
+# ---------------------------------------------
+# API: Search used in inline.py (your old system)
+# DO NOT REMOVE — this keeps your inline working
+# ---------------------------------------------
+async def get_search_results(chat_id, query, file_type=None, max_results=10, offset=0):
+    filters = {"file_name": {"$regex": query, "$options": "i"}}
 
     if file_type:
-        filter['file_type'] = file_type
+        filters["file_name"]["$regex"] = rf".*{file_type}.*"
 
-    total_results = await Media.count_documents(filter)
-    next_offset = offset + max_results
+    cursor = files_col.find(filters).skip(offset).limit(max_results)
 
-    if next_offset > total_results:
-        next_offset = ''
+    results = []
+    async for file in cursor:
+        results.append(file)
 
-    cursor = Media.find(filter)
-    # Sort by recent
-    cursor.sort('$natural', -1)
-    # Slice files according to offset and max results
-    cursor.skip(offset).limit(max_results)
-    # Get list of files
-    files = await cursor.to_list(length=max_results)
+    total = await files_col.count_documents(filters)
+    next_offset = offset + max_results if offset + max_results < total else 0
 
-    return files, next_offset, total_results
-
-
-
-async def get_file_details(query):
-    filter = {'file_id': query}
-    cursor = Media.find(filter)
-    filedetails = await cursor.to_list(length=1)
-    return filedetails
-
-
-def encode_file_id(s: bytes) -> str:
-    r = b""
-    n = 0
-
-    for i in s + bytes([22]) + bytes([4]):
-        if i == 0:
-            n += 1
-        else:
-            if n:
-                r += b"\x00" + bytes([n])
-                n = 0
-
-            r += bytes([i])
-
-    return base64.urlsafe_b64encode(r).decode().rstrip("=")
-
-
-def encode_file_ref(file_ref: bytes) -> str:
-    return base64.urlsafe_b64encode(file_ref).decode().rstrip("=")
-
-
-def unpack_new_file_id(new_file_id):
-    """Return file_id, file_ref"""
-    decoded = FileId.decode(new_file_id)
-    file_id = encode_file_id(
-        pack(
-            "<iiqq",
-            int(decoded.file_type),
-            decoded.dc_id,
-            decoded.media_id,
-            decoded.access_hash
-        )
-    )
-    file_ref = encode_file_ref(decoded.file_reference)
-    return file_id, file_ref
+    return results, next_offset, total
