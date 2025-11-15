@@ -34,35 +34,29 @@ SPELL_CHECK = {}
 
 @Client.on_message(filters.group & filters.text & filters.incoming)
 async def give_filter(client, message):
-    if EMOJI_MODE:
-        try:
-    await message.react(emoji=random.choice(REACTIONS), big=True)
-except:
-    pass
+
+    # Update user top message
     await mdb.update_top_messages(message.from_user.id, message.text)
 
-    # ---- NO MANUAL FILTERS — REMOVED ---- #
-
-    # Now use your Series/Movies Search System directly
+    # Directly use your movie/series search
     query = message.text
     results = await mdb.search_title(query)
 
     if not results:
         return await message.reply("❌ No results found.")
 
-    # create inline buttons for search results
+    # Create inline buttons for search results
     buttons = []
-    for r in results:
+    for result in results:
         buttons.append(
-            [InlineKeyboardButton(r['title'], callback_data=f"result_{r['id']}")]
+            [InlineKeyboardButton(result["title"], callback_data=f"movie_{result['_id']}")]
         )
 
     await message.reply_photo(
-        START_PIC,
-        caption=f"🔍 Results for **{query}**",
+        photo=START_PIC,  # from info.py
+        caption=ABOUT_TEXT,  # from script.py
         reply_markup=InlineKeyboardMarkup(buttons)
     )
-
 
 # =====================================================
 # MOVIE SELECTED → POSTER + SEASONS
