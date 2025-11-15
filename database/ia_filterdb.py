@@ -116,6 +116,18 @@ async def get_search_results(query, file_type=None, max_results=10, offset=0, fi
 
     return files, next_offset, total_results
 
+async def is_file_exist(file_id):
+    files = await get_file_details(file_id)
+    return bool(files)
+
+
+async def search_files(query, max_results=100):
+    files, _, _ = await get_search_results(query, max_results=max_results)
+    return files
+
+
+async def total_files():
+    return await Media.count_documents({})
 
 
 async def get_file_details(query):
