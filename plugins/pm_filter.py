@@ -16,7 +16,7 @@ from pyrogram.types import (
 )
 
 from info import START_PIC, ABOUT_TEXT  # ensure these exist
-from database.users_chats_db import db as mdb
+from database.users_chats_db import *
 from database.ia_filterdb import (
     search_title,
     get_movie,
