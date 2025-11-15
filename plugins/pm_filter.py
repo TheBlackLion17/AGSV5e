@@ -35,8 +35,10 @@ SPELL_CHECK = {}
 @Client.on_message(filters.group & filters.text & filters.incoming)
 async def give_filter(client, message):
     if EMOJI_MODE:
-        await message.react(emoji=random.choice(REACTIONS), big=True)
-
+        try:
+    await message.react(emoji=random.choice(REACTIONS), big=True)
+except:
+    pass
     await mdb.update_top_messages(message.from_user.id, message.text)
 
     # ---- NO MANUAL FILTERS — REMOVED ---- #
