@@ -31,6 +31,29 @@ async def search_series(chat_id, query):
 # -----------------------------
 # Start Searching
 # -----------------------------
+
+@Client.on_message(filters.private & filters.text)
+async def movie_info(bot, message):
+    query = message.text
+    info = await get_movie_details(query)
+
+    if "error" in info:
+        await message.reply(f"❌ {info['error']}")
+        return
+
+    text = (
+        f"🎬 **{info['title']} ({info.get('year', '')})**\n"
+        f"⭐ Rating: {info.get('rating', 'N/A')}\n"
+        f"🎭 Genre: {', '.join(info.get('genres', []))}\n"
+        f"🎬 Director: {', '.join(info.get('director', []))}\n"
+        f"📝 Plot: {info.get('plot', 'N/A')}\n"
+        f"👥 Cast: {', '.join(info.get('cast', []))}\n"
+        f"🆔 IMDb ID: {info.get('imdb_id')}\n"
+    )
+    await message.reply(text)
+
+
+
 @Client.on_message(filters.private & filters.text)
 async def main_handler(bot: Client, message: Message):
     query = message.text
