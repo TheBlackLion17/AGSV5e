@@ -32,48 +32,12 @@ class Media(Document):
         indexes = ('$file_name', )
         collection_name = COLLECTION_NAME
 
-async def is_file_exist(file_id):
-    """
-    Check if a file already exists in the database
-    """
-    return await files_col.find_one({"file_id": file_id}) is not None
-
-
 async def choose_mediaDB():
     """This Function chooses which database to use based on the value of indexDB key in the dict tempDict."""
     global saveMedia
     if tempDict['indexDB'] == DATABASE_URI:
         logger.info("Using first db (Media)")
         saveMedia = Media
-
-
-
-async def is_file_exist(file_id):
-    return await files_col.find_one({"file_id": file_id}) is not None
-
-async def search_files(query):
-    regex = {"$regex": query, "$options": "i"}
-    cursor = files_col.find({"file_name": regex})
-    results = []
-    async for doc in cursor:
-        results.append(doc)
-    return results
-
-async def delete_file_by_id(file_id):
-    result = await files_col.delete_one({"file_id": file_id})
-    return result.deleted_count > 0
-
-async def total_files():
-    return await files_col.count_documents({})
-
-# ---------------------------
-# Helper: clean series name
-# ---------------------------
-def extract_series_name(name):
-    name = name.lower()
-    name = re.sub(r"[sS]\d+[eE]\d+.*", "", name)
-    name = name.replace(".", " ").replace("-", " ")
-    return name.strip()
 
 
 async def save_file(bot, media):
