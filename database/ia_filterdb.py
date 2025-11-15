@@ -121,3 +121,57 @@ async def get_search_results(chat_id, query, file_type=None, max_results=10, off
     next_offset = offset + max_results if offset + max_results < total else 0
 
     return results, next_offset, total
+
+@Client.on_message(filters.text & ~filters.private)
+async def group_auto_filter(bot, message):
+    query = message.text.strip()
+
+    files = await search_files(query)
+    if not files:
+        return
+
+    pages = split_results(files, RESULTS_PER_PAGE)
+
+    keyboard = []
+    if len(pages) > 1:
+        keyboard = InlineKeyboardMarkup(
+            [[InlineKeyboardButton("Next ➤", callback_data=f"page_1_{query}")]]
+        )
+
+    first_page = pages[0]
+
+    text = f"🔍 **Results for:** `{query}`\n\n"
+    for file in first_page:
+        text += format_file_caption(file)
+
+    await message.reply(text, reply_markup=keyboard, disable_web_page_preview=True)
+
+
+@Client.on_callback_query(filters.regex(r"page_(\d+)_(.+)"))
+async def next_page(bot, query):
+    page = int(query.data.split("_")[1])
+    search_query = query.data.split("_", 2)[2]
+
+    files = await search_files(search_query)
+    pages = split_results(files, RESULTS_PER_PAGE)
+
+    if page >= len(pages):
+        return await query.answer("No more pages!")
+
+    keyboard = []
+    nav_buttons = []
+
+    if page > 0:
+        nav_buttons.append(InlineKeyboardButton("⬅ Previous", callback_data=f"page_{page-1}_{search_query}"))
+    if page < len(pages) - 1:
+        nav_buttons.append(InlineKeyboardButton("Next ➤", callback_data=f"page_{page+1}_{search_query}"))
+
+    if nav_buttons:
+        keyboard = InlineKeyboardMarkup([nav_buttons])
+
+    text = f"🔍 **Results for:** `{search_query}`\n\n"
+    for file in pages[page]:
+        text += format_file_caption(file)
+
+    await query.message.edit(text, reply_markup=keyboard, disable_web_page_preview=True)
+    await query.answer()
