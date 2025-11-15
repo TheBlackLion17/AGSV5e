@@ -3,7 +3,7 @@ from Script import script
 from pyrogram import Client, filters, enums
 from pyrogram.errors import UserNotParticipant, ChatAdminRequired, PeerIdInvalid, FloodWait
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
-from database.ia_filterdb import Media, save_file, is_file_exist, search_files, delete_file_by_id, total_files
+from database.ia_filterdb import Media, save_file, get_file_details, get_search_results
 from database.users_chats_db import db
 from info import CHANNELS, ADMINS, AUTH_CHANNEL, LOG_CHANNEL, PICS, BATCH_FILE_CAPTION, CUSTOM_FILE_CAPTION, PROTECT_CONTENT
 from utils import get_settings, get_size, is_subscribed, save_group_settings, temp
