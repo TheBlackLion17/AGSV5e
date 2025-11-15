@@ -18,6 +18,47 @@ files_col = db.files  # Your indexed media storage
 # Helper: Clean series name from filename
 # Example: "Breaking.Bad.S01E02" -> "breaking bad"
 # ---------------------------------------------
+
+async def save_file(file_id, file_name, file_size, mime_type, caption, message_id, chat_id):
+    data = {
+        "file_id": file_id,
+        "file_name": file_name,
+        "file_size": file_size,
+        "mime_type": mime_type,
+        "caption": caption,
+        "message_id": message_id,
+        "chat_id": chat_id
+    }
+    await media_collection.insert_one(data)
+    return True
+
+
+async def is_file_exist(file_id):
+    return await media_collection.find_one({"file_id": file_id}) is not None
+
+
+async def search_files(query):
+    """
+    Advanced search – supports partial match, case-insensitive
+    """
+    regex = {"$regex": query, "$options": "i"}
+    cursor = media_collection.find({"file_name": regex})
+
+    results = []
+    async for doc in cursor:
+        results.append(doc)
+
+    return results
+
+
+async def delete_file_by_id(file_id):
+    result = await media_collection.delete_one({"file_id": file_id})
+    return result.deleted_count > 0
+
+
+async def total_files():
+    return await media_collection.count_documents({})
+
 def extract_series_name(name):
     name = name.lower()
     # Remove season/episode info
