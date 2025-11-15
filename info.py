@@ -48,6 +48,7 @@ LOG_CHANNEL = int(environ.get('LOG_CHANNEL', '-1002801544620'))
 SUPPORT_CHAT = environ.get('SUPPORT_CHAT', 'Movies_Hub_OG')
 P_TTI_SHOW_OFF = is_enabled((environ.get('P_TTI_SHOW_OFF', 'True')), False)
 IMDB = is_enabled((environ.get('IMDB', 'False')), True)
+IMAGE_FETCH = is_enabled((environ.get('IMAGE_FETCH', 'False'))  # or False depending on your setup
 SINGLE_BUTTON = is_enabled((environ.get('SINGLE_BUTTON', 'True')), False)
 CUSTOM_FILE_CAPTION = environ.get("CUSTOM_FILE_CAPTION", f"{script.CUSTOM_FILE_CAPTION}") ## CHANGE CODE IN SCRIPT
 BATCH_FILE_CAPTION = environ.get("BATCH_FILE_CAPTION", "📂 <em>File Name</em>: <code>{file_name}</code>\n\n ♻ <em>File Size</em>:{file_size} \n\n <b><i>Latest Movies -</i> [ELDORADO](https://t.me/+pRaLXcOcEW83OWY1) </b>")
