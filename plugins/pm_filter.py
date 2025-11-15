@@ -14,8 +14,16 @@ from database.users_chats_db import db as mdb
 async def give_filter(client, message):
     query = message.text
 
-    # USE REAL AUTOFILTER SEARCH
-    results = await get_search_results(query)
+    # REAL DB SEARCH
+    raw_results = await get_search_results(query)
+
+    # Flatten nested lists
+    results = []
+    for group in raw_results:
+        if isinstance(group, list):
+            results.extend(group)
+        else:
+            results.append(group)
 
     if not results:
         return await message.reply("❌ No results found.")
@@ -31,7 +39,6 @@ async def give_filter(client, message):
         f"🔍 Results for: **{query}**",
         reply_markup=InlineKeyboardMarkup(buttons)
     )
-
 
 # =====================================================
 # MOVIE SELECTED → SHOW LANGUAGES FROM DB
