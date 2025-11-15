@@ -68,6 +68,7 @@ COLLECTION_NAME = environ.get('COLLECTION_NAME', 'agsfilterV3_bot')
 MAX_B_TN = environ.get("MAX_B_TN", "5")
 USE_CAPTION_FILTER = bool(environ.get('USE_CAPTION_FILTER', True))
 CAPTION_LANGUAGES = ["Bhojpuri", "Hindi", "Bengali", "Tamil", "English", "Bangla", "Telugu", "Malayalam", "Kannada", "Marathi", "Punjabi", "Bengoli", "Gujrati", "Korean", "Gujarati", "Spanish", "French", "German", "Chinese", "Arabic", "Portuguese", "Russian", "Japanese", "Odia", "Assamese", "Urdu"]
+REACTIONS = ["🤝", "😇", "🤗", "😍", "👍", "🎅", "😐", "🥰", "🤩", "😱", "🤣", "😘", "👏", "😛", "😈", "🎉", "⚡️", "🫡", "🤓", "😎", "🏆", "🔥", "🤭", "🌚", "🆒", "👻", "😁"]
 
 
 LOG_STR = "Current Cusomized Configurations are:-\n"
