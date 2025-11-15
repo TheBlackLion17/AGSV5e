@@ -47,6 +47,20 @@ async def choose_mediaDB():
         saveMedia = Media
 
 
+async def search_files(query: str):
+    """
+    Search files in database by name (case-insensitive)
+    """
+    regex = {"$regex": query, "$options": "i"}
+    cursor = files_col.find({"file_name": regex})
+
+    results = []
+    async for doc in cursor:
+        results.append(doc)
+
+    return results
+
+
 async def save_file(bot, media):
   """Save file in database"""
   global saveMedia
