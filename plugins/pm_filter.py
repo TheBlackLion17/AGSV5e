@@ -5,7 +5,7 @@ from database.ia_filterdb import get_search_results
 from imdb_api import get_movie_details
 from utils import get_size
 from info import CUSTOM_FILE_CAPTION
-from imdb_api import get_movie_details  # Make sure you have imdb.py
+from database.imdb_api import get_movie_details
 from database.connections_mdb import active_connection
 
 # -----------------------------
