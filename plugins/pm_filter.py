@@ -14,30 +14,47 @@ from database.users_chats_db import db as mdb
 async def give_filter(client, message):
     query = message.text
 
-    # REAL DB SEARCH
     raw_results = await get_search_results(query)
 
-    # Flatten nested lists
+    # Normalize results → flatten list
     results = []
-    for group in raw_results:
-        if isinstance(group, list):
-            results.extend(group)
+    for r in raw_results:
+        if isinstance(r, list):
+            results.extend(r)
         else:
-            results.append(group)
+            results.append(r)
 
     if not results:
         return await message.reply("❌ No results found.")
 
-    # Build buttons
     buttons = []
+
     for result in results:
-        file_id = str(result.file_id)
-        title = result.file_name
-        buttons.append([InlineKeyboardButton(title, callback_data=f"movie_{file_id}")])
+        # CASE 1 → Media object
+        if hasattr(result, "file_id"):
+            title = result.file_name
+            file_id = result.file_id
+
+        # CASE 2 → dict object
+        elif isinstance(result, dict):
+            title = result.get("file_name") or result.get("title") or "Unknown"
+            file_id = result.get("file_id") or result.get("_id")
+
+        # CASE 3 → string (your error case)
+        elif isinstance(result, str):
+            title = result
+            file_id = result  # fallback
+
+        else:
+            continue
+
+        buttons.append(
+            [InlineKeyboardButton(title, callback_data=f"movie_{file_id}")]
+        )
 
     await message.reply(
         f"🔍 Results for: **{query}**",
-        reply_markup=InlineKeyboardMarkup(buttons)
+        reply_markup=InlineKeyboardMarkup(buttons),
     )
 
 # =====================================================
