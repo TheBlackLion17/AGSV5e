@@ -135,24 +135,26 @@ async def language_selected(client, query):
 # QUALITY SELECTED → AUTO SEND ALL EPISODES
 # =====================================================
 
-@Client.on_callback_query(filters.regex(r"quality_(.*)"))
-async def quality_selected(client, query):
+@Client.on_callback_query(filters.regex(r"^quality_"))
+async def send_quality_episodes(client, query):
     _, movie_id, season, lang, quality = query.data.split("_")
 
-    await query.answer("🚀 Sending all episodes…")
-
-await query.message.edit_caption(
-        caption=f"📺 **Season {season}**\n🌐 {lang}\n🎚 {quality}\n\nSending all episodes..."
-    )
-
+    # Good indentation
     episodes = await get_episode_files(movie_id, season, lang, quality)
 
+    if not episodes:
+        return await query.answer("No episodes found.", show_alert=True)
+
+    await query.message.edit_text(
+        f"🎬 Sending all episodes for:\n"
+        f"📺 Season: {season}\n"
+        f"🌐 Language: {lang}\n"
+        f"📀 Quality: {quality}"
+    )
+
     for ep in episodes:
-        try:
-            await client.send_document(
-                chat_id=query.from_user.id,
-                document=ep["file_id"],
-                caption=f"🎞 Episode {ep['episode']} - {ep.get('title','')}"
-            )
-        except Exception as e:
-            print("Episode Send Error:", e)
+        await client.send_document(
+            query.from_user.id,
+            ep["file_id"],
+            caption=f"Episode {ep['ep_no']} • {quality} • {lang}"
+        )
