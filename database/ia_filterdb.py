@@ -47,18 +47,33 @@ async def choose_mediaDB():
         saveMedia = Media
 
 
-async def search_files(query: str):
-    """
-    Search files in database by name (case-insensitive)
-    """
+
+async def is_file_exist(file_id):
+    return await files_col.find_one({"file_id": file_id}) is not None
+
+async def search_files(query):
     regex = {"$regex": query, "$options": "i"}
     cursor = files_col.find({"file_name": regex})
-
     results = []
     async for doc in cursor:
         results.append(doc)
-
     return results
+
+async def delete_file_by_id(file_id):
+    result = await files_col.delete_one({"file_id": file_id})
+    return result.deleted_count > 0
+
+async def total_files():
+    return await files_col.count_documents({})
+
+# ---------------------------
+# Helper: clean series name
+# ---------------------------
+def extract_series_name(name):
+    name = name.lower()
+    name = re.sub(r"[sS]\d+[eE]\d+.*", "", name)
+    name = name.replace(".", " ").replace("-", " ")
+    return name.strip()
 
 
 async def save_file(bot, media):
