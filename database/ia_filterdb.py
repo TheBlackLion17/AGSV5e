@@ -32,18 +32,19 @@ class Media:
 # Example: "Breaking.Bad.S01E02" -> "breaking bad"
 # ---------------------------------------------
 
-async def save_file(file_id, file_name, file_size, mime_type, caption, message_id, chat_id):
+async def save_file(media: Media):
     data = {
-        "file_id": file_id,
-        "file_name": file_name,
-        "file_size": file_size,
-        "mime_type": mime_type,
-        "caption": caption,
-        "message_id": message_id,
-        "chat_id": chat_id
+        "file_id": media.file_id,
+        "file_name": media.file_name,
+        "file_size": media.file_size,
+        "mime_type": media.mime_type,
+        "caption": media.caption,
+        "message_id": media.message_id,
+        "chat_id": media.chat_id
     }
-    await media_collection.insert_one(data)
+    await files_col.insert_one(data)
     return True
+
 
 
 async def is_file_exist(file_id):
